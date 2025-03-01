@@ -12,48 +12,79 @@ const VideoCall = () => {
   useEffect(() => {
     // Get user media
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((currentStream) => {
-        setStream(currentStream);
-        if (myVideo.current) {
-          myVideo.current.srcObject = currentStream;
-        }
-      })
-      .catch((error) => console.error("Error accessing media devices:", error));
+  .then((currentStream) => {
+    console.log("Media stream received:", currentStream);
+    setStream(currentStream);
+    if (myVideo.current) {
+      myVideo.current.srcObject = currentStream;
+    }
+  })
+  .catch((error) => console.error("Error accessing media devices:", error));
 
     // Connect to WebSocket
-    socket.current = new WebSocket("http://127.0.0.1:8000/ws");
+    socket.current = new WebSocket("ws://127.0.0.1:8000/ws");
 
-    socket.current.onmessage = (message) => {
-      const data = JSON.parse(message.data);
-      if (data.signal) {
-        peer?.signal(data.signal);
+  socket.current.onopen = () => {
+    console.log("WebSocket connected!");
+  };
+
+  socket.current.onmessage = (message) => {
+    const data = JSON.parse(message.data);
+    console.log("📩 Received WebSocket message:", data);
+  
+    if (data.signal) {
+      console.log("🔹 Applying received WebRTC signal...");
+      console.log(data.signal);
+      if (peer) {
+        peer.signal(data.signal);
+      } else {
+        console.error("❌ Peer connection not established!");
       }
-    };
-  }, []);
+    } else {
+      console.error("❌ No signal data received!");
+    }
+  };
+  
+
+  socket.current.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
+
+  socket.current.onclose = () => {
+    console.log("WebSocket disconnected!");
+  };
+  }, [peer]);
 
   // Function to create peer connection
   const createPeer = () => {
-    alert('Clikced')
+    console.log("Start Call button clicked");
+    alert("Clicked");
+    
     const newPeer = new Peer({
       initiator: true,
       trickle: false,
       stream: stream!,
     });
-    
+    alert("In");
+  
     newPeer.on("signal", (signal) => {
-      
-      alert('Clikced')
+      console.log("Generated WebRTC signal:", signal);
       socket.current?.send(JSON.stringify({ signal }));
     });
     
+    newPeer.on("connect", () => {
+      console.log("✅ Peer-to-peer connection established!");
+    });
+  
     newPeer.on("stream", (remoteStream) => {
+      console.log("Received remote stream:", remoteStream);
       if (peerVideo.current) {
-        alert('Clikced')
         peerVideo.current.srcObject = remoteStream;
       }
     });
-
+  
     setPeer(newPeer);
+    console.log(newPeer)
   };
 
   return (
