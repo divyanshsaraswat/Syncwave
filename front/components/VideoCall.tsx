@@ -3,52 +3,57 @@ import React, { useState, useRef, useEffect } from "react";
 import Peer from "simple-peer";
 
 const VideoCall = () => {
-  const [stream, setStream] = useState<MediaStream | undefined>(undefined);
-  const [peer,setPeer] = useState<Peer.Instance|null>(null);
-  const [peerStreams,setPeerStreams] = useState<any>();
-  const socket = useRef<WebSocket|undefined>(undefined)
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [peer, setPeer] = useState<Peer.Instance | null>(null);
+  const socket = useRef<WebSocket | null>(null);
   const myVideo = useRef<HTMLVideoElement>(null);
-  const peerVideo = useRef<HTMLVideoElement|null>(null);
+  const peerVideo = useRef<HTMLVideoElement>(null);
 
-  const getMediaStream = async () => {
-    try {
-      if (!stream) {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setStream(mediaStream);
-      } else {
-        // Clone the stream to allow multiple users
-        const clonedStream = stream.clone();
-        setStream(clonedStream);
-      }
-  
-      if (myVideo.current) {
-        myVideo.current.srcObject = stream!;
-      }
-    } catch (error) {
-      console.error("Error accessing media devices:", error);
-    }
-  };
   useEffect(() => {
-    getMediaStream()
-    return () => {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
+    // Get user media
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then((currentStream) => {
+        setStream(currentStream);
+        if (myVideo.current) {
+          myVideo.current.srcObject = currentStream;
         }
-      };
+      })
+      .catch((error) => console.error("Error accessing media devices:", error));
 
+    // Connect to WebSocket
+    socket.current = new WebSocket("http://127.0.0.1:8000/ws");
+
+    socket.current.onmessage = (message) => {
+      const data = JSON.parse(message.data);
+      if (data.signal) {
+        peer?.signal(data.signal);
+      }
+    };
   }, []);
-  const createPeer = (userId: string, socket: WebSocket, event?: React.MouseEvent<HTMLButtonElement>) => {
-    const peer = new Peer({ initiator: true, trickle: false, stream });
-  
-    peer.on("signal", (signal) => {
-      socket.send(JSON.stringify({ type: "signal", userId, signal }));
+
+  // Function to create peer connection
+  const createPeer = () => {
+    alert('Clikced')
+    const newPeer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream: stream!,
     });
-  
-    peer.on("stream", (remoteStream) => {
-      setPeerStreams((prev:any) => [...prev, { id: userId, stream: remoteStream }]);
+    
+    newPeer.on("signal", (signal) => {
+      
+      alert('Clikced')
+      socket.current?.send(JSON.stringify({ signal }));
     });
-  
-    return peer;
+    
+    newPeer.on("stream", (remoteStream) => {
+      if (peerVideo.current) {
+        alert('Clikced')
+        peerVideo.current.srcObject = remoteStream;
+      }
+    });
+
+    setPeer(newPeer);
   };
 
   return (
@@ -56,7 +61,7 @@ const VideoCall = () => {
       <video ref={myVideo} autoPlay playsInline className="w-1/2 rounded-lg shadow-lg" />
       <video ref={peerVideo} autoPlay playsInline className="w-1/2 rounded-lg shadow-lg mt-4" />
       <button
-        onClick={() => socket.current && createPeer("user123", socket.current)}
+        onClick={createPeer}
         className="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg shadow-md"
       >
         Start Call

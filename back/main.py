@@ -6,9 +6,9 @@ connections : List[WebSocket] = []
 async def root():
     return {"message":"Hello from Fastapi!"}
 
-@app.get('/ws')
-async def websocket_endpoint(Websocket=WebSocket):
-    await Websocket.accept()
+@app.websocket('/ws')
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
     connections.append(websocket)
 
     try:
